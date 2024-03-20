@@ -73,6 +73,8 @@ spec:
               containerPort: 7946
             - name: http-metrics
               containerPort: 3100
+            - name: http-internal
+              containerPort: 3101
           {{- with .Values.ingester.extraEnv }}
           env:
             {{- toYaml . | nindent 12 }}
@@ -96,6 +98,12 @@ spec:
               name: runtime-config
             - mountPath: /var/tempo
               name: data
+            {{- if .Values.server.mtls.enabled }}
+            - mountPath: /var/run/tls/internal/ca
+              name: tempo-internal-ca
+            - mountPath: /var/run/tls/internal/cert
+              name: tempo-internal-cert
+            {{- end }}
             {{- if .Values.enterprise.enabled }}
             - name: license
               mountPath: /license
@@ -127,6 +135,14 @@ spec:
           {{- include "tempo.configVolume" . | nindent 10 }}
         - name: runtime-config
           {{- include "tempo.runtimeVolume" . | nindent 10 }}
+        {{- if .Values.server.mtls.enabled }}
+        - name: tempo-internal-ca
+          configMap:
+            name: {{ include "tempo.resourceName" (dict "ctx" $ "component" "ca") }}
+        - name: tempo-internal-cert
+          secret:
+            secretName: {{ include "tempo.resourceName" $dict }}-cert
+        {{- end }}
         {{- if .Values.enterprise.enabled }}
         - name: license
           secret:

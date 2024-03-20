@@ -70,6 +70,8 @@ spec:
           ports:
             - containerPort: 3100
               name: http-metrics
+            - containerPort: 3101
+              name: http-internal
             - containerPort: 9095
               name: grpc
           {{- with .Values.queryFrontend.extraEnv }}
@@ -93,6 +95,12 @@ spec:
               name: runtime-config
             - mountPath: /var/tempo
               name: tempo-queryfrontend-store
+            {{- if .Values.server.mtls.enabled }}
+            - mountPath: /var/run/tls/internal/ca
+              name: tempo-internal-ca
+            - mountPath: /var/run/tls/internal/cert
+              name: tempo-internal-cert
+            {{- end }}
             {{- if .Values.enterprise.enabled }}
             - name: license
               mountPath: /license
@@ -133,6 +141,8 @@ spec:
           volumeMounts:
             - mountPath: /conf
               name: config
+            - mountPath: /tmp
+              name: tempo-query-tmp
             {{- with .Values.queryFrontend.query.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -163,6 +173,16 @@ spec:
           {{- include "tempo.runtimeVolume" . | nindent 10 }}
         - name: tempo-queryfrontend-store
           emptyDir: {}
+        - name: tempo-query-tmp
+          emptyDir: {}
+        {{- if .Values.server.mtls.enabled }}
+        - name: tempo-internal-ca
+          configMap:
+            name: {{ include "tempo.resourceName" (dict "ctx" $ "component" "ca") }}
+        - name: tempo-internal-cert
+          secret:
+            secretName: {{ include "tempo.resourceName" $dict }}-cert
+        {{- end }}
         {{- if .Values.enterprise.enabled }}
         - name: license
           secret:

@@ -5,8 +5,6 @@ metadata:
 spec:
   chart: tempo-distributed
   values:
-    ingester:
-      replicas: 1
     queryFrontend:
       query:
         enabled: true

@@ -68,6 +68,8 @@ spec:
           ports:
             - containerPort: 3100
               name: http-metrics
+            - containerPort: 3101
+              name: http-internal
             - containerPort: 7946
               name: http-memberlist
           {{- with .Values.compactor.extraEnv }}
@@ -91,6 +93,12 @@ spec:
               name: runtime-config
             - mountPath: /var/tempo
               name: tempo-compactor-store
+            {{- if .Values.server.mtls.enabled }}
+            - mountPath: /var/run/tls/internal/ca
+              name: tempo-internal-ca
+            - mountPath: /var/run/tls/internal/cert
+              name: tempo-internal-cert
+            {{- end }}
             {{- if .Values.enterprise.enabled }}
             - name: license
               mountPath: /license
@@ -130,6 +138,14 @@ spec:
           {{- include "tempo.runtimeVolume" . | nindent 10 }}
         - name: tempo-compactor-store
           emptyDir: {}
+        {{- if .Values.server.mtls.enabled }}
+        - name: tempo-internal-ca
+          configMap:
+            name: {{ include "tempo.resourceName" (dict "ctx" $ "component" "ca") }}
+        - name: tempo-internal-cert
+          secret:
+            secretName: {{ include "tempo.resourceName" $dict }}-cert
+        {{- end }}
         {{- if .Values.enterprise.enabled }}
         - name: license
           secret:

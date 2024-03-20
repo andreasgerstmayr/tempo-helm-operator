@@ -47,11 +47,11 @@ func reconcileManagedObjects(
 		)
 
 		if isNamespaceScoped(obj) {
-			/*if err := ctrl.SetControllerReference(owner, obj, scheme); err != nil {
+			if err := ctrl.SetControllerReference(owner, obj, scheme); err != nil {
 				l.Error(err, "failed to set controller owner reference to resource")
 				errs = append(errs, err)
 				continue
-			}*/
+			}
 		}
 
 		desired := obj.DeepCopyObject().(client.Object)

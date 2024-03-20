@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	helmclient "github.com/operator-framework/helm-operator-plugins/pkg/client"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,15 +48,35 @@ func (r *TempoMicroservicesReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	var vals map[string]interface{}
-	err := json.Unmarshal(tempo.Spec.Values.Raw, &vals)
+	chart, err := loader.Load("helm-charts/tempo-distributed")
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	manifests, err := r.renderHelmChart("helm-charts/tempo-distributed", &tempo, vals)
+	var vals chartutil.Values
+	err = json.Unmarshal(tempo.Spec.Values.Raw, &vals)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// merge values from CR with default values of chart
+	vals, err = chartutil.CoalesceValues(chart, vals)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	manifests, err := r.renderHelmChart(chart, &tempo, vals)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	mtlsEnabled, _ := vals.PathValue("server.mtls.enabled")
+	if mtlsEnabled == true {
+		certs, err := createCerts(ctx, r.Client, tempo)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		manifests = append(manifests, certs...)
 	}
 
 	err = reconcileManagedObjects(context.Background(), r.Client, &tempo, r.Scheme, manifests, map[types.UID]client.Object{})

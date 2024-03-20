@@ -69,6 +69,8 @@ spec:
               protocol: TCP
             - containerPort: 3100
               name: http-metrics
+            - containerPort: 3101
+              name: http-internal
             {{- if .Values.traces.jaeger.thriftCompact.enabled }}
             - containerPort: 6831
               name: jaeger-compact
@@ -132,6 +134,12 @@ spec:
               name: runtime-config
             - mountPath: /var/tempo
               name: tempo-distributor-store
+            {{- if .Values.server.mtls.enabled }}
+            - mountPath: /var/run/tls/internal/ca
+              name: tempo-internal-ca
+            - mountPath: /var/run/tls/internal/cert
+              name: tempo-internal-cert
+            {{- end }}
             {{- if .Values.enterprise.enabled }}
             - name: license
               mountPath: /license
@@ -165,6 +173,14 @@ spec:
           {{- include "tempo.runtimeVolume" . | nindent 10 }}
         - name: tempo-distributor-store
           emptyDir: {}
+        {{- if .Values.server.mtls.enabled }}
+        - name: tempo-internal-ca
+          configMap:
+            name: {{ include "tempo.resourceName" (dict "ctx" $ "component" "ca") }}
+        - name: tempo-internal-cert
+          secret:
+            secretName: {{ include "tempo.resourceName" $dict }}-cert
+        {{- end }}
         {{- if .Values.enterprise.enabled }}
         - name: license
           secret:

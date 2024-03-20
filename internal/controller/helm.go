@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chartutil"
 	k8sjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/streaming"
@@ -14,18 +14,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *TempoMicroservicesReconciler) renderHelmChart(chartPath string, obj client.Object, v map[string]interface{}) ([]client.Object, error) {
+func (r *TempoMicroservicesReconciler) renderHelmChart(chart *chart.Chart, obj client.Object, vals chartutil.Values) ([]client.Object, error) {
 	actionClient, err := r.ActionClientGetter.ActionClientFor(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	chart, err := loader.Load(chartPath)
-	if err != nil {
-		return nil, err
-	}
-
-	vals, err := chartutil.CoalesceValues(chart, v)
 	if err != nil {
 		return nil, err
 	}
