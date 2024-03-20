@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- tempo_v1alpha1_tempomicroservices.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples

@@ -1,0 +1,12 @@
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoMicroservices
+metadata:
+  labels:
+    app.kubernetes.io/name: tempomicroservices
+    app.kubernetes.io/instance: tempomicroservices-sample
+    app.kubernetes.io/part-of: tempo-helm-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: tempo-helm-operator
+  name: tempomicroservices-sample
+spec:
+  # TODO(user): Add fields here
