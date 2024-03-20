@@ -17,25 +17,18 @@ limitations under the License.
 package v1alpha1
 
 import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // TempoMicroservicesSpec defines the desired state of TempoMicroservices
 type TempoMicroservicesSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of TempoMicroservices. Edit tempomicroservices_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Chart  string               `json:"chart,omitempty"`
+	Values apiextensionsv1.JSON `json:"values,omitempty"`
 }
 
 // TempoMicroservicesStatus defines the observed state of TempoMicroservices
 type TempoMicroservicesStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 }
 
 //+kubebuilder:object:root=true

@@ -34,10 +34,10 @@ spec:
           spec:
             description: TempoMicroservicesSpec defines the desired state of TempoMicroservices
             properties:
-              foo:
-                description: Foo is an example field of TempoMicroservices. Edit tempomicroservices_types.go
-                  to remove/update
+              chart:
                 type: string
+              values:
+                x-kubernetes-preserve-unknown-fields: true
             type: object
           status:
             description: TempoMicroservicesStatus defines the observed state of TempoMicroservices

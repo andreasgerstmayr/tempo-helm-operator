@@ -1,0 +1,12 @@
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoMicroservices
+metadata:
+  name: sample
+spec:
+  chart: tempo-distributed
+  values:
+    ingester:
+      replicas: 1
+    queryFrontend:
+      query:
+        enabled: true

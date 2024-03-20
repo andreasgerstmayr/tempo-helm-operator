@@ -1,25 +1,14 @@
-/*
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controller
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
+	helmclient "github.com/operator-framework/helm-operator-plugins/pkg/client"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,7 +19,9 @@ import (
 // TempoMicroservicesReconciler reconciles a TempoMicroservices object
 type TempoMicroservicesReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme             *runtime.Scheme
+	ActionConfigGetter helmclient.ActionConfigGetter
+	ActionClientGetter helmclient.ActionClientGetter
 }
 
 //+kubebuilder:rbac:groups=tempo.grafana.com,resources=tempomicroservices,verbs=get;list;watch;create;update;patch;delete
@@ -39,17 +30,37 @@ type TempoMicroservicesReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the TempoMicroservices object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.16.3/pkg/reconcile
 func (r *TempoMicroservicesReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	tempo := tempov1alpha1.TempoMicroservices{}
+	if err := r.Get(ctx, req.NamespacedName, &tempo); err != nil {
+		if !apierrors.IsNotFound(err) {
+			log.Error(err, "unable to fetch TempoMicroservices")
+			return ctrl.Result{}, fmt.Errorf("could not fetch TempoMicroservices: %w", err)
+		}
+
+		// we'll ignore not-found errors, since they can't be fixed by an immediate
+		// requeue (we'll need to wait for a new notification), and we can get them
+		// on deleted requests.
+		return ctrl.Result{}, nil
+	}
+
+	var vals map[string]interface{}
+	err := json.Unmarshal(tempo.Spec.Values.Raw, &vals)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	manifests, err := r.renderHelmChart("helm-charts/tempo-distributed", &tempo, vals)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = reconcileManagedObjects(context.Background(), r.Client, &tempo, r.Scheme, manifests, map[types.UID]client.Object{})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }

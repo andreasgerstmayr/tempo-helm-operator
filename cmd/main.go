@@ -25,6 +25,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	helmclient "github.com/operator-framework/helm-operator-plugins/pkg/client"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -122,9 +123,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	actionConfigGetter, err := helmclient.NewActionConfigGetter(mgr.GetConfig(), mgr.GetRESTMapper(), ctrl.Log)
+	if err != nil {
+		setupLog.Error(err, "creating action config getter")
+		os.Exit(1)
+	}
+
+	actionClientGetter, err := helmclient.NewActionClientGetter(actionConfigGetter)
+	if err != nil {
+		setupLog.Error(err, "creating action client getter")
+		os.Exit(1)
+	}
+
 	if err = (&controller.TempoMicroservicesReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:             mgr.GetClient(),
+		Scheme:             mgr.GetScheme(),
+		ActionConfigGetter: actionConfigGetter,
+		ActionClientGetter: actionClientGetter,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TempoMicroservices")
 		os.Exit(1)
