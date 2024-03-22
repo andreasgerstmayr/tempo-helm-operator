@@ -8,6 +8,9 @@ import (
 	helmclient "github.com/operator-framework/helm-operator-plugins/pkg/client"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	tempov1alpha1 "github.com/andreasgerstmayr/tempo-helm-operator/api/v1alpha1"
+	"github.com/andreasgerstmayr/tempo-helm-operator/internal/status"
 )
 
 // TempoMicroservicesReconciler reconciles a TempoMicroservices object
@@ -50,46 +54,56 @@ func (r *TempoMicroservicesReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	chart, err := loader.Load("helm-charts/tempo-distributed")
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, status.HandleStatus(ctx, r.Client, tempo, err)
 	}
 
 	var vals chartutil.Values
 	err = json.Unmarshal(tempo.Spec.Values.Raw, &vals)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, status.HandleStatus(ctx, r.Client, tempo, err)
 	}
 
 	// merge values from CR with default values of chart
 	vals, err = chartutil.CoalesceValues(chart, vals)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, status.HandleStatus(ctx, r.Client, tempo, err)
 	}
 
 	manifests, err := r.renderHelmChart(chart, &tempo, vals)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, status.HandleStatus(ctx, r.Client, tempo, err)
 	}
 
 	mtlsEnabled, _ := vals.PathValue("server.mtls.enabled")
 	if mtlsEnabled == true {
 		certs, err := createCerts(ctx, r.Client, tempo)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, status.HandleStatus(ctx, r.Client, tempo, err)
 		}
 		manifests = append(manifests, certs...)
 	}
 
 	err = reconcileManagedObjects(context.Background(), r.Client, &tempo, r.Scheme, manifests, map[types.UID]client.Object{})
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, status.HandleStatus(ctx, r.Client, tempo, err)
 	}
 
-	return ctrl.Result{}, nil
+	// Note: controller-runtime will always requeue a reconcile if Reconcile() returns any error except TerminalError.
+	// Result.Requeue and Result.RequeueAfter are only respected if err == nil
+	// https://github.com/kubernetes-sigs/controller-runtime/blob/v0.15.0/pkg/internal/controller/controller.go#L315-L341
+	return ctrl.Result{}, status.HandleStatus(ctx, r.Client, tempo, nil)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TempoMicroservicesReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tempov1alpha1.TempoMicroservices{}).
+		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.Secret{}).
+		Owns(&corev1.Service{}).
+		Owns(&corev1.ServiceAccount{}).
+		Owns(&appsv1.Deployment{}).
+		Owns(&appsv1.StatefulSet{}).
+		Owns(&networkingv1.Ingress{}).
 		Complete(r)
 }

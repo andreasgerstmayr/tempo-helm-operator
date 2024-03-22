@@ -1,0 +1,20 @@
+package manifestutils
+
+import (
+	"k8s.io/apimachinery/pkg/labels"
+)
+
+// CommonLabels returns common labels for each TempoMonolithic object created by the operator.
+func CommonLabels(instanceName string) map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/name":     "tempo",
+		"app.kubernetes.io/instance": instanceName,
+	}
+}
+
+// ComponentLabels is a list of all commonLabels including the app.kubernetes.io/component:<component> label.
+func ComponentLabels(component, instanceName string) labels.Set {
+	return labels.Merge(CommonLabels(instanceName), map[string]string{
+		"app.kubernetes.io/component": component,
+	})
+}
