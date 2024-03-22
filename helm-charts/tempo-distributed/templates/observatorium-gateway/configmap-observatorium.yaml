@@ -1,0 +1,11 @@
+{{- if .Values.observatorium.enabled }}
+{{ $dict := dict "ctx" . "component" "observatorium" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tempo.resourceName" $dict }}-rbac
+  namespace: {{ .Release.Namespace | quote }}
+data:
+  rbac.yaml: |
+    {{- toYaml .Values.observatorium.rbac | nindent 4 }}
+{{- end }}

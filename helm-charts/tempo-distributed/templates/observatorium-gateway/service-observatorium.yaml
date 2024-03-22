@@ -1,0 +1,35 @@
+{{- if .Values.observatorium.enabled }}
+{{ $dict := dict "ctx" . "component" "observatorium" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "tempo.resourceName" $dict }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tempo.labels" $dict | nindent 4 }}
+    {{- with .Values.observatorium.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.observatorium.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ports:
+    - name: public
+      port: 8080
+      targetPort: public
+      protocol: TCP
+    - name: internal
+      port: 8081
+      targetPort: internal
+      protocol: TCP
+    {{- if .Values.traces.otlp.grpc.enabled }}
+    - name: grpc-public
+      port: 8090
+      targetPort: grpc-public
+      protocol: TCP
+    {{- end }}
+  selector:
+    {{- include "tempo.selectorLabels" $dict | nindent 4 }}
+{{- end }}

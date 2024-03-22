@@ -89,7 +89,7 @@ func createCA(ctx context.Context, k8sclient client.Client, namespace, name stri
 
 	if !ok || expired {
 		fmt.Printf("CA cert expired\n")
-		caCfg, err := crypto.MakeSelfSignedCAConfigForDuration("operator", 1*time.Hour)
+		caCfg, err := crypto.MakeSelfSignedCAConfigForDuration("operator", 10*time.Hour)
 		if err != nil {
 			return nil, err
 		}
@@ -151,7 +151,7 @@ func createServerCert(ctx context.Context, k8sclient client.Client, namespace, n
 			return nil
 		}
 
-		tlsCfg, err := ca.MakeServerCertForDuration(sets.NewString(hostnames...), 1*time.Hour, addClientAuthUsage, addSubject)
+		tlsCfg, err := ca.MakeServerCertForDuration(sets.NewString(hostnames...), 10*time.Hour, addClientAuthUsage, addSubject)
 		if err != nil {
 			return nil, err
 		}

@@ -5,6 +5,10 @@ metadata:
 spec:
   chart: tempo-distributed
   values:
+    traces:
+      otlp:
+        grpc:
+          enabled: true
     queryFrontend:
       query:
         enabled: true

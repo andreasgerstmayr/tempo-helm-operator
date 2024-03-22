@@ -1,0 +1,50 @@
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoMicroservices
+metadata:
+  name: sample
+spec:
+  chart: tempo-distributed
+  values:
+    server:
+      mtls:
+        enabled: true
+    traces:
+      otlp:
+        grpc:
+          enabled: true
+    queryFrontend:
+      query:
+        enabled: true
+    multitenancyEnabled: true
+    observatorium:
+      enabled: true
+      tls:
+        cert: observatorium-public-cert
+      tenants:
+        tenants:
+        - name: tenant1
+          id: tenant1
+          oidc:
+            clientID: tenant1-client-id
+            clientSecret: ZXhhbXBsZS1hcHAtc2VjcmV0
+            issuerURL: http://hydra.default.svc.cluster.local:4444
+            redirectURL: https://sample-tempo-observatorium.default.svc.cluster.local:8080/oidc/tenant1/callback
+      rbac:
+        roleBindings:
+        - name: assign-allow-rw-tenant1
+          roles:
+          - allow-rw-tenant1
+          subjects:
+          - kind: user
+            name: tenant1-client-id # OAuth client_credentials (e.g. via OpenTelemetry oauth2client extension)
+          - kind: user
+            name: foo@bar.com # OAuth Browser flow
+        roles:
+        - name: allow-rw-tenant1
+          permissions:
+          - read
+          - write
+          resources:
+          - traces
+          tenants:
+          - tenant1

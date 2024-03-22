@@ -113,6 +113,20 @@ spec:
             - --query.base-path=/
             - --grpc-storage-plugin.configuration-file=/conf/tempo-query.yaml
             - --query.bearer-token-propagation=true
+            {{- if .Values.multitenancyEnabled }}
+            - --multi-tenancy.enabled=true
+            - --multi-tenancy.header=x-scope-orgid
+            {{- end }}
+            {{- if .Values.server.mtls.enabled }}
+            - --query.http.tls.enabled=true
+            - --query.http.tls.cert=/var/run/tls/internal/cert/tls.crt
+            - --query.http.tls.key=/var/run/tls/internal/cert/tls.key
+            - --query.http.tls.client-ca=/var/run/tls/internal/ca/ca.crt
+            - --query.grpc.tls.enabled=true
+            - --query.grpc.tls.cert=/var/run/tls/internal/cert/tls.crt
+            - --query.grpc.tls.key=/var/run/tls/internal/cert/tls.key
+            - --query.grpc.tls.client-ca=/var/run/tls/internal/ca/ca.crt
+            {{- end }}
             {{- with .Values.queryFrontend.query.extraArgs }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -143,6 +157,12 @@ spec:
               name: config
             - mountPath: /tmp
               name: tempo-query-tmp
+            {{- if .Values.server.mtls.enabled }}
+            - mountPath: /var/run/tls/internal/ca
+              name: tempo-internal-ca
+            - mountPath: /var/run/tls/internal/cert
+              name: tempo-internal-cert
+            {{- end }}
             {{- with .Values.queryFrontend.query.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

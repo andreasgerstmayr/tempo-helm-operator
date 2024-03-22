@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hydra
+spec:
+  selector:
+    matchLabels:
+      app: hydra
+  template:
+    metadata:
+      labels:
+        app: hydra
+    spec:
+      containers:
+      - name: hydra
+        image: docker.io/oryd/hydra:v2.2.0
+        command: ["hydra", "serve", "all", "--dev", "--sqa-opt-out"]
+        env:
+        - name: DSN
+          value: memory
+        - name: SECRETS_SYSTEM
+          value: saf325iouepdsg8574nb39afdu
+        - name: URLS_SELF_ISSUER
+          value: http://hydra.default.svc.cluster.local:4444
+        - name: URLS_CONSENT
+          value: http://hydra.default.svc.cluster.local:3000/consent
+        - name: URLS_LOGIN
+          value: http://hydra.default.svc.cluster.local:3000/login
+        - name: URLS_LOGOUT
+          value: http://hydra.default.svc.cluster.local:3000/logout
+        - name: STRATEGIES_ACCESS_TOKEN
+          value: jwt
+        ports:
+        - containerPort: 4444
+          name: public
+        - containerPort: 4445
+          name: internal
+      - name: hydra-consent
+        image: oryd/hydra-login-consent-node:v2.2.0
+        env:
+        - name: HYDRA_ADMIN_URL
+          value: http://127.0.0.1:4445
+        ports:
+        - containerPort: 3000
+          name: consent
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hydra
+spec:
+  selector:
+    app: hydra
+  ports:
+  - name: public
+    port: 4444
+    targetPort: public
+  - name: internal
+    port: 4445
+    targetPort: internal
+  - name: consent
+    port: 3000
+    targetPort: consent
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: setup-hydra
+spec:
+  template:
+    spec:
+      containers:
+      - name: setup-hydra
+        image: ghcr.io/grafana/tempo-operator/test-utils:main
+        command: ["/bin/bash", "-eux", "-c"]
+        args:
+        - |
+          # create OAuth2 client
+          client_id=tenant1-client-id
+          client_secret=ZXhhbXBsZS1hcHAtc2VjcmV0 # notsecret
+          curl -vf \
+            --data '{"audience": ["'$client_id'"], "client_id": "'$client_id'", "client_secret": "'$client_secret'", "grant_types": ["client_credentials", "authorization_code"], "token_endpoint_auth_method": "client_secret_post", "redirect_uris": ["https://sample-tempo-observatorium.default.svc.cluster.local:8080/oidc/tenant1/callback"], "scope": "profile openid email groups"}' \
+            http://hydra:4445/admin/clients
+      restartPolicy: Never

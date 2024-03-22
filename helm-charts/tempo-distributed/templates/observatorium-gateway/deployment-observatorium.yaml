@@ -1,0 +1,139 @@
+{{- if .Values.observatorium.enabled }}
+{{ $dict := dict "ctx" . "component" "observatorium" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tempo.resourceName" $dict }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tempo.labels" $dict | nindent 4 }}
+  {{- with .Values.observatorium.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "tempo.selectorLabels" $dict | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tempo.podLabels" $dict | nindent 8 }}
+        {{- with .Values.observatorium.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-tempo.yaml") . | sha256sum }}
+        {{- with .Values.observatorium.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "tempo.serviceAccountName" . }}
+      {{- with .Values.observatorium.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      enableServiceLinks: false
+      containers:
+        - args:
+            {{- $scheme := "http" }}
+            {{- if .Values.server.mtls.enabled }}
+              {{- $scheme = "https" }}
+            {{- end }}
+            - --web.listen=0.0.0.0:8080 # proxies Tempo API and optionally Jaeger UI
+            - --web.internal.listen=0.0.0.0:8081 # serves health checks
+            - --traces.tenant-header=x-scope-orgid
+            - --traces.tempo.endpoint={{ $scheme }}://{{ include "tempo.resourceName" (dict "ctx" . "component" "query-frontend") }}:3100 # Tempo API upstream
+            - --rbac.config=/conf/rbac/rbac.yaml
+            - --tenants.config=/conf/tenants/tenants.yaml
+            {{- if .Values.traces.otlp.grpc.enabled }}
+            - --grpc.listen=0.0.0.0:8090 # proxies Tempo Distributor gRPC
+            - --traces.write.endpoint={{ include "tempo.resourceName" (dict "ctx" . "component" "distributor") }}:4317 # Tempo Distributor gRPC upstream
+            {{- end }}
+            {{- if .Values.queryFrontend.query.enabled }}
+            - --traces.read.endpoint={{ $scheme }}://{{ include "tempo.resourceName" (dict "ctx" . "component" "query-frontend") }}:16686 # Jaeger UI upstream
+            {{- end }}
+            {{- if .Values.observatorium.tls.cert }}
+            - --tls.server.cert-file=/var/run/tls/public/cert/tls.crt # TLS of public HTTP (8080) and gRPC (8090) server
+            - --tls.server.key-file=/var/run/tls/public/cert/tls.key
+            {{- end }}
+            {{- if .Values.server.mtls.enabled }}
+            - --traces.tls.cert-file=/var/run/tls/internal/cert/tls.crt # client certificate for connection to Tempo
+            - --traces.tls.key-file=/var/run/tls/internal/cert/tls.key
+            - --traces.tls.ca-file=/var/run/tls/internal/ca/ca.crt
+            - --tls.internal.server.cert-file=/var/run/tls/internal/cert/tls.crt
+            - --tls.internal.server.key-file=/var/run/tls/internal/cert/tls.key
+            {{- end }}
+            - --log.level=debug
+          image: {{ include "tempo.imageReference" $dict }}
+          name: observatorium
+          ports:
+            - containerPort: 8080
+              name: public
+              protocol: TCP
+            - containerPort: 8081
+              name: internal
+              protocol: TCP
+            {{- if .Values.traces.otlp.grpc.enabled }}
+            - containerPort: 8090
+              name: grpc-public
+              protocol: TCP
+            {{- end }}
+          {{- with .Values.observatorium.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.observatorium.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.observatorium.resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: /conf/rbac
+              name: rbac-config
+            - mountPath: /conf/tenants
+              name: tenants-config
+            {{- if .Values.server.mtls.enabled }}
+            - mountPath: /var/run/tls/internal/ca
+              name: tempo-internal-ca
+            - mountPath: /var/run/tls/internal/cert
+              name: tempo-internal-cert
+            {{- end }}
+            {{- if .Values.observatorium.tls.cert }}
+            - mountPath: /var/run/tls/public/cert
+              name: observatorium-public-cert
+            {{- end }}
+      {{- with .Values.observatorium.affinity }}
+      affinity:
+        {{- tpl . $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.observatorium.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.observatorium.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: rbac-config
+          configMap:
+            name: {{ include "tempo.resourceName" $dict }}-rbac
+        - name: tenants-config
+          secret:
+            secretName: {{ include "tempo.resourceName" $dict }}-tenants
+        {{- if .Values.server.mtls.enabled }}
+        - name: tempo-internal-ca
+          configMap:
+            name: {{ include "tempo.resourceName" (dict "ctx" $ "component" "ca") }}
+        - name: tempo-internal-cert
+          secret:
+            secretName: {{ include "tempo.resourceName" $dict }}-cert
+        {{- end }}
+        {{- if .Values.observatorium.tls.cert }}
+        - name: observatorium-public-cert
+          secret:
+            secretName: {{ .Values.observatorium.tls.cert }}
+        {{- end }}
+{{- end }}
