@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: verify-traces-traceql
+spec:
+  template:
+    spec:
+      containers:
+      - name: verify-traces
+        image: ghcr.io/grafana/tempo-operator/test-utils:main
+        command: ["/bin/bash", "-eux", "-c"]
+        args:
+        - |
+          curl -sS -G \
+            --header "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+            --cacert /var/run/tls/ca/ca.crt \
+            https://sample-tempo-observatorium:8080/api/traces/v1/dev/tempo/api/search \
+            --data-urlencode 'q={ resource.service.name="telemetrygen" }' \
+            | tee /tmp/tempo.out
+
+          num_traces=$(jq ".traces | length" /tmp/tempo.out)
+          [ "$num_traces" -eq "10" ] || exit 1
+        volumeMounts:
+        - mountPath: /var/run/tls/ca
+          name: ca
+      volumes:
+      - name: ca
+        configMap:
+          name: observatorium-public-ca
+      restartPolicy: Never

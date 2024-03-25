@@ -10,13 +10,17 @@ require (
 	github.com/imdario/mergo v0.3.16
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/onsi/gomega v1.30.0
+	github.com/openshift/api v0.0.0-20231129134630-a782d1c1541c
+	github.com/openshift/library-go v0.0.0-20231214171439-128164517bf7
 	github.com/operator-framework/helm-operator-plugins v0.1.3
 	helm.sh/helm/v3 v3.14.3
 	k8s.io/api v0.29.3
 	k8s.io/apiextensions-apiserver v0.29.0
 	k8s.io/apimachinery v0.29.3
+	k8s.io/apiserver v0.29.0
 	k8s.io/client-go v0.29.3
 	k8s.io/kubectl v0.29.3
+	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	sigs.k8s.io/controller-runtime v0.16.3
 )
 
@@ -38,7 +42,6 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/distribution/distribution/v3 v3.0.0-20230511163743-f7717b7855ca // indirect
 	github.com/docker/cli v24.0.6+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v24.0.7+incompatible // indirect
@@ -107,7 +110,6 @@ require (
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc5 // indirect
-	github.com/openshift/library-go v0.0.0-20231214171439-128164517bf7 // indirect
 	github.com/operator-framework/operator-lib v0.12.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -152,12 +154,10 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.29.0 // indirect
 	k8s.io/cli-runtime v0.29.3 // indirect
 	k8s.io/component-base v0.29.3 // indirect
 	k8s.io/klog/v2 v2.110.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
-	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	oras.land/oras-go v1.2.4 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3 // indirect

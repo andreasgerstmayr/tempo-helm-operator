@@ -134,11 +134,9 @@ spec:
               name: runtime-config
             - mountPath: /var/tempo
               name: tempo-distributor-store
-            {{- if .Values.server.mtls.enabled }}
-            - mountPath: /var/run/tls/internal/ca
-              name: tempo-internal-ca
-            - mountPath: /var/run/tls/internal/cert
-              name: tempo-internal-cert
+            {{- if .Values.server.tls.enabled }}
+            - mountPath: /var/run/tls/internal/certs
+              name: tempo-internal-certs
             {{- end }}
             {{- if .Values.enterprise.enabled }}
             - name: license
@@ -173,13 +171,10 @@ spec:
           {{- include "tempo.runtimeVolume" . | nindent 10 }}
         - name: tempo-distributor-store
           emptyDir: {}
-        {{- if .Values.server.mtls.enabled }}
-        - name: tempo-internal-ca
-          configMap:
-            name: {{ include "tempo.resourceName" (dict "ctx" $ "component" "ca") }}
-        - name: tempo-internal-cert
+        {{- if .Values.server.tls.enabled }}
+        - name: tempo-internal-certs
           secret:
-            secretName: {{ include "tempo.resourceName" $dict }}-cert
+            secretName: {{ include "tempo.resourceName" $dict }}-certs
         {{- end }}
         {{- if .Values.enterprise.enabled }}
         - name: license

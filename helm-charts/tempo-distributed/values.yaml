@@ -67,8 +67,8 @@ tempo:
   # -- SecurityContext holds container-level security attributes and common container settings
   securityContext:
     runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
+    #runAsUser: 1000
+    #runAsGroup: 1000
     allowPrivilegeEscalation: false
     capabilities:
       drop:
@@ -76,7 +76,7 @@ tempo:
     readOnlyRootFilesystem: true
   # -- podSecurityContext holds pod-level security attributes and common container settings
   podSecurityContext:
-    fsGroup: 1000
+    #fsGroup: 1000
   # -- Structured tempo configuration
   structuredConfig: {}
   # -- Memberlist service configuration.
@@ -702,13 +702,14 @@ queryFrontend:
     config: |
       backend: 127.0.0.1:3100
       tenant_header_key: x-scope-orgid
-      {{- if .Values.server.mtls.enabled }}
+      {{- if .Values.server.tls.enabled }}
       tls_enabled: true
-      tls_cert_path: /var/run/tls/internal/cert/tls.crt
-      tls_key_path: /var/run/tls/internal/cert/tls.key
-      tls_ca_path: /var/run/tls/internal/ca/ca.crt
+      tls_cert_path: /var/run/tls/internal/certs/tls.crt
+      tls_key_path: /var/run/tls/internal/certs/tls.key
+      tls_ca_path: /var/run/tls/internal/certs/ca.crt
+      {{- if .Values.server.tls.mtls }}
       tls_server_name: {{ include "tempo.resourceName" (dict "ctx" . "component" "query-frontend") }}
-      tls_insecure_skip_verify: false
+      {{- end }}
       {{- end }}
   # -- Number of replicas for the query-frontend
   replicas: 1
@@ -1180,11 +1181,13 @@ config: |
           grpc:
             {{- $mergedOtlpGrpcReceiverConfig := mustMergeOverwrite (dict "endpoint" "0.0.0.0:4317") .Values.traces.otlp.grpc.receiverConfig }}
             {{- toYaml $mergedOtlpGrpcReceiverConfig | nindent 10 }}
-            {{- if and .Values.observatorium.enabled .Values.server.mtls.enabled }}
+            {{- if and .Values.server.tls.enabled .Values.observatorium.enabled  }}
             tls:
-              cert_file: /var/run/tls/internal/cert/tls.crt
-              key_file: /var/run/tls/internal/cert/tls.key
-              client_ca_file: /var/run/tls/internal/ca/ca.crt
+              cert_file: /var/run/tls/internal/certs/tls.crt
+              key_file: /var/run/tls/internal/certs/tls.key
+              {{- if .Values.server.mtls }}
+              client_ca_file: /var/run/tls/internal/certs/ca.crt
+              {{- end }}
             {{- end }}
           {{- end }}
       {{- end }}
@@ -1209,17 +1212,21 @@ config: |
   querier:
     frontend_worker:
       frontend_address: {{ include "tempo.resourceName" (dict "ctx" . "component" "query-frontend-discovery") }}:9095
+      {{- if or .Values.querier.config.frontend_worker.grpc_client_config .Values.server.tls.enabled }}
       grpc_client_config:
-        {{- if .Values.server.mtls.enabled }}
+        {{- if .Values.server.tls.enabled }}
         tls_enabled: true
-        tls_cert_path: /var/run/tls/internal/cert/tls.crt
-        tls_key_path: /var/run/tls/internal/cert/tls.key
-        tls_ca_path: /var/run/tls/internal/ca/ca.crt
+        tls_cert_path: /var/run/tls/internal/certs/tls.crt
+        tls_key_path: /var/run/tls/internal/certs/tls.key
+        tls_ca_path: /var/run/tls/internal/certs/ca.crt
+        {{- if .Values.server.tls.mtls }}
         tls_server_name: {{ include "tempo.resourceName" (dict "ctx" . "component" "query-frontend") }}
+        {{- end }}
         {{- end }}
         {{- with .Values.querier.config.frontend_worker.grpc_client_config }}
         {{- toYaml . | nindent 6 }}
         {{- end }}
+      {{- end }}
     trace_by_id:
       query_timeout: {{ .Values.querier.config.trace_by_id.query_timeout }}
     search:
@@ -1270,15 +1277,17 @@ config: |
     {{- if .Values.ingester.config.flush_all_on_shutdown }}
     flush_all_on_shutdown: {{ .Values.ingester.config.flush_all_on_shutdown }}
     {{- end }}
+  {{- if .Values.server.tls.enabled }}
   ingester_client:
     grpc_client_config:
-      {{- if .Values.server.mtls.enabled }}
       tls_enabled: true
-      tls_cert_path: /var/run/tls/internal/cert/tls.crt
-      tls_key_path: /var/run/tls/internal/cert/tls.key
-      tls_ca_path: /var/run/tls/internal/ca/ca.crt
+      tls_cert_path: /var/run/tls/internal/certs/tls.crt
+      tls_key_path: /var/run/tls/internal/certs/tls.key
+      tls_ca_path: /var/run/tls/internal/certs/ca.crt
+      {{- if .Values.server.tls.mtls }}
       tls_server_name: {{ include "tempo.resourceName" (dict "ctx" . "component" "ingester") }}
       {{- end }}
+  {{- end }}
   memberlist:
     {{- with .Values.memberlist }}
       {{- toYaml . | nindent 2 }}
@@ -1289,10 +1298,10 @@ config: |
     {{- toYaml .Values.global_overrides | nindent 2 }}
   internal_server:
     enable: true
-    {{- if .Values.server.mtls.enabled }}
+    {{- if .Values.server.tls.enabled }}
     http_tls_config:
-      cert_file: /var/run/tls/internal/cert/tls.crt
-      key_file: /var/run/tls/internal/cert/tls.key
+      cert_file: /var/run/tls/internal/certs/tls.crt
+      key_file: /var/run/tls/internal/certs/tls.key
     {{- end }}
   server:
     http_listen_port: {{ .Values.server.httpListenPort }}
@@ -1302,18 +1311,21 @@ config: |
     grpc_server_max_send_msg_size: {{ .Values.server.grpc_server_max_send_msg_size }}
     http_server_read_timeout: {{ .Values.server.http_server_read_timeout }}
     http_server_write_timeout: {{ .Values.server.http_server_write_timeout }}
-
-    {{- if .Values.server.mtls.enabled }}
+    {{- if .Values.server.tls.enabled }}
     grpc_tls_config:
-      cert_file: /var/run/tls/internal/cert/tls.crt
-      key_file: /var/run/tls/internal/cert/tls.key
+      cert_file: /var/run/tls/internal/certs/tls.crt
+      key_file: /var/run/tls/internal/certs/tls.key
+      {{- if .Values.server.tls.mtls }}
       client_auth_type: RequireAndVerifyClientCert
-      client_ca_file: /var/run/tls/internal/ca/ca.crt
+      client_ca_file: /var/run/tls/internal/certs/ca.crt
+      {{- end }}
     http_tls_config:
-      cert_file: /var/run/tls/internal/cert/tls.crt
-      key_file: /var/run/tls/internal/cert/tls.key
+      cert_file: /var/run/tls/internal/certs/tls.crt
+      key_file: /var/run/tls/internal/certs/tls.key
+      {{- if .Values.server.tls.mtls }}
       client_auth_type: RequireAndVerifyClientCert
-      client_ca_file: /var/run/tls/internal/ca/ca.crt
+      client_ca_file: /var/run/tls/internal/certs/ca.crt
+      {{- end }}
     {{- end }}
   cache:
   {{- toYaml .Values.cache | nindent 2}}
@@ -1366,6 +1378,10 @@ server:
   http_server_read_timeout: 30s
   # -- Write timeout for HTTP server
   http_server_write_timeout: 30s
+
+  tls:
+    enabled: false
+    mtls: false
 
 # Use this block to configure caches available throughout the application.
 # Multiple caches can be created and assigned roles which determine how they are used by Tempo.
@@ -1931,14 +1947,48 @@ observatorium:
     pullPolicy: IfNotPresent
   tls:
     cert: ""
-  tenants: {}
-  rbac: {}
-  # observatorium service configuration
-  service:
-    # -- Annotations for the observatorium service
+  serviceAccount:
     annotations: {}
-    # -- Labels for observatorium service
+  resources: {}
+  service:
+    annotations: {}
     labels: {}
+  route:
+    enabled: false
+    annotations: {}
+    labels: {}
+  openshift:
+    enabled: false
+  tenants:
+  - name: dev
+    id: "1610b0c3-c509-4592-a256-a1871353dbfa"
+    openshift:
+      serviceAccount: sample-tempo-observatorium
+      redirectURL: https://sample-tempo-observatorium-chainsaw-multitenancy-openshift.apps-crc.testing/openshift/dev/callback
+      cookieSecret: wdDjci39YLmn7TNmQVSriUuJDu4JXi88
+    opa:
+      url: http://localhost:8082/v1/data/tempomicroservices/allow
+      withAccessToken: true
+  rbac: {}
+
+  tenantsConfig: |
+    tenants:
+    {{- range .Values.observatorium.tenants }}
+    - id: {{ .id }}
+      name: {{ .name }}
+      {{- if .oidc }}
+      oidc:
+        {{ toYaml .oidc | nindent 4 }}
+      {{- else }}
+      openshift:
+        serviceAccount: {{ include "tempo.resourceName" (dict "ctx" $ "component" "observatorium") }}
+        redirectURL: https://{{ include "tempo.resourceName" (dict "ctx" $ "component" "observatorium") }}-{{ $.Release.Namespace }}.apps-crc.testing/openshift/{{ .name }}/callback
+        cookieSecret: {{ .openshift.cookieSecret }}
+      opa:
+        url: http://localhost:8082/v1/data/tempomicroservices/allow
+        withAccessToken: true
+      {{- end }}
+    {{- end }}
 
 ##############################################################################
 # The values in and after the `enterprise:` key configure the enterprise features

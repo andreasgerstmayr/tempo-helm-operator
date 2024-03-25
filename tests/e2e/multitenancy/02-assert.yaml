@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-tempo-compactor
+status:
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-tempo-distributor
+status:
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: sample-tempo-ingester
+status:
+  readyReplicas: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-tempo-querier
+status:
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-tempo-query-frontend
+status:
+  readyReplicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-tempo-observatorium
+status:
+  readyReplicas: 1

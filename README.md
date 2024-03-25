@@ -1,8 +1,12 @@
 # tempo-helm-operator
-// TODO(user): Add simple overview of use/purpose
+This is a **Proof of Concept** to integrate helm charts in an operator.
+The [tempo-distributed helm chart](https://github.com/grafana/helm-charts/tree/main/charts/tempo-distributed) renders all static Kubernetes manifests,
+and the operator adds operator-specific features on top (for example generating TLS certificates, updating the status field, etc.).
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+**Status:** Supports Tempo in Microservices deployment mode, mTLS between components, multitenancy via [observatorium-api](https://github.com/observatorium/api) and [opa-openshift](https://github.com/observatorium/opa-openshift) for authentication and authorization. The [tests/e2e](tests/e2e) folder contains deployment examples.
+
+[Diff](https://github.com/andreasgerstmayr/tempo-helm-operator/compare/9acc96870069cf02f831f109d65cf358367e7a0e...main)
+
 
 ## Getting Started
 
@@ -88,4 +92,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-

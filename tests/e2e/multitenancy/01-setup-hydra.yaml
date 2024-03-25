@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: setup-hydra
+spec:
+  template:
+    spec:
+      containers:
+      - name: setup-hydra
+        image: ghcr.io/grafana/tempo-operator/test-utils:main
+        command: ["/bin/bash", "-eux", "-c"]
+        args:
+        - |
+          # create OAuth2 clients
+          client_id=tenant1-client-id
+          client_secret=ZXhhbXBsZS1hcHAtc2VjcmV0 # notsecret
+          curl -vf \
+            --data '{"audience": ["'$client_id'"], "client_id": "'$client_id'", "client_secret": "'$client_secret'", "grant_types": ["client_credentials", "authorization_code"], "token_endpoint_auth_method": "client_secret_post", "redirect_uris": ["https://sample-tempo-observatorium.chainsaw-multitenancy.svc.cluster.local:8080/oidc/tenant1/callback"], "scope": "profile openid email groups"}' \
+            http://hydra:4445/admin/clients
+
+          client_id=tenant2-client-id
+          client_secret=ZXhhbXBsZS1hcHAtc2VjcmV1 # notsecret
+          curl -vf \
+            --data '{"audience": ["'$client_id'"], "client_id": "'$client_id'", "client_secret": "'$client_secret'", "grant_types": ["client_credentials", "authorization_code"], "token_endpoint_auth_method": "client_secret_post", "redirect_uris": ["https://sample-tempo-observatorium.chainsaw-multitenancy.svc.cluster.local:8080/oidc/tenant2/callback"], "scope": "profile openid email groups"}' \
+            http://hydra:4445/admin/clients
+      restartPolicy: Never

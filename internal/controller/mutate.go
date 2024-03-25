@@ -7,6 +7,7 @@ import (
 	"github.com/ViaQ/logerr/v2/kverrors"
 	"github.com/google/go-cmp/cmp"
 	"github.com/imdario/mergo"
+	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -105,6 +106,11 @@ func MutateFuncFor(existing, desired client.Object) controllerutil.MutateFn {
 			wantIng := desired.(*networkingv1.Ingress)
 			mutateIngress(ing, wantIng)
 
+		case *routev1.Route:
+			rt := existing.(*routev1.Route)
+			wantRt := desired.(*routev1.Route)
+			mutateRoute(rt, wantRt)
+
 		case *corev1.Secret:
 			pr := existing.(*corev1.Secret)
 			wantPr := desired.(*corev1.Secret)
@@ -185,6 +191,12 @@ func mutateIngress(existing, desired *networkingv1.Ingress) {
 	existing.Spec.TLS = desired.Spec.TLS
 }
 
+func mutateRoute(existing, desired *routev1.Route) {
+	existing.Annotations = desired.Annotations
+	existing.Labels = desired.Labels
+	existing.Spec = desired.Spec
+}
+
 func mutateService(existing, desired *corev1.Service) error {
 	existing.Spec.Ports = desired.Spec.Ports
 	if err := mergeWithOverride(&existing.Spec.Selector, desired.Spec.Selector); err != nil {
@@ -206,6 +218,7 @@ func mutateDeployment(existing, desired *appsv1.Deployment) error {
 	if err := mergeWithOverride(&existing.Spec.Strategy, desired.Spec.Strategy); err != nil {
 		return err
 	}
+
 	return nil
 }
 

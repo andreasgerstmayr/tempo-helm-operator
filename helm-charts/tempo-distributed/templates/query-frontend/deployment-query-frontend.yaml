@@ -95,11 +95,9 @@ spec:
               name: runtime-config
             - mountPath: /var/tempo
               name: tempo-queryfrontend-store
-            {{- if .Values.server.mtls.enabled }}
-            - mountPath: /var/run/tls/internal/ca
-              name: tempo-internal-ca
-            - mountPath: /var/run/tls/internal/cert
-              name: tempo-internal-cert
+            {{- if .Values.server.tls.enabled }}
+            - mountPath: /var/run/tls/internal/certs
+              name: tempo-internal-certs
             {{- end }}
             {{- if .Values.enterprise.enabled }}
             - name: license
@@ -117,15 +115,19 @@ spec:
             - --multi-tenancy.enabled=true
             - --multi-tenancy.header=x-scope-orgid
             {{- end }}
-            {{- if .Values.server.mtls.enabled }}
+            {{- if .Values.server.tls.enabled }}
             - --query.http.tls.enabled=true
-            - --query.http.tls.cert=/var/run/tls/internal/cert/tls.crt
-            - --query.http.tls.key=/var/run/tls/internal/cert/tls.key
-            - --query.http.tls.client-ca=/var/run/tls/internal/ca/ca.crt
+            - --query.http.tls.cert=/var/run/tls/internal/certs/tls.crt
+            - --query.http.tls.key=/var/run/tls/internal/certs/tls.key
+            {{- if .Values.server.tls.mtls }}
+            - --query.http.tls.client-ca=/var/run/tls/internal/certs/ca.crt
+            {{- end }}
             - --query.grpc.tls.enabled=true
-            - --query.grpc.tls.cert=/var/run/tls/internal/cert/tls.crt
-            - --query.grpc.tls.key=/var/run/tls/internal/cert/tls.key
-            - --query.grpc.tls.client-ca=/var/run/tls/internal/ca/ca.crt
+            - --query.grpc.tls.cert=/var/run/tls/internal/certs/tls.crt
+            - --query.grpc.tls.key=/var/run/tls/internal/certs/tls.key
+            {{- if .Values.server.tls.mtls }}
+            - --query.grpc.tls.client-ca=/var/run/tls/internal/certs/ca.crt
+            {{- end }}
             {{- end }}
             {{- with .Values.queryFrontend.query.extraArgs }}
             {{- toYaml . | nindent 12 }}
@@ -157,11 +159,9 @@ spec:
               name: config
             - mountPath: /tmp
               name: tempo-query-tmp
-            {{- if .Values.server.mtls.enabled }}
-            - mountPath: /var/run/tls/internal/ca
-              name: tempo-internal-ca
-            - mountPath: /var/run/tls/internal/cert
-              name: tempo-internal-cert
+            {{- if .Values.server.tls.enabled }}
+            - mountPath: /var/run/tls/internal/certs
+              name: tempo-internal-certs
             {{- end }}
             {{- with .Values.queryFrontend.query.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
@@ -195,13 +195,10 @@ spec:
           emptyDir: {}
         - name: tempo-query-tmp
           emptyDir: {}
-        {{- if .Values.server.mtls.enabled }}
-        - name: tempo-internal-ca
-          configMap:
-            name: {{ include "tempo.resourceName" (dict "ctx" $ "component" "ca") }}
-        - name: tempo-internal-cert
+        {{- if .Values.server.tls.enabled }}
+        - name: tempo-internal-certs
           secret:
-            secretName: {{ include "tempo.resourceName" $dict }}-cert
+            secretName: {{ include "tempo.resourceName" $dict }}-certs
         {{- end }}
         {{- if .Values.enterprise.enabled }}
         - name: license

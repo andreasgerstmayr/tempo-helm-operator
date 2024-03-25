@@ -1,0 +1,27 @@
+{{- if .Values.observatorium.route.enabled }}
+{{ $dict := dict "ctx" . "component" "observatorium" }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "tempo.resourceName" $dict }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "tempo.labels" $dict | nindent 4 }}
+    {{- with .Values.observatorium.route.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.observatorium.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  to:
+    kind: Service
+    name: {{ include "tempo.resourceName" $dict }}
+    weight: 100
+  port:
+    targetPort: public
+  tls:
+    termination: passthrough
+  wildcardPolicy: None
+{{- end }}

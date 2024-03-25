@@ -74,7 +74,7 @@ func (r *TempoMicroservicesReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, status.HandleStatus(ctx, r.Client, tempo, err)
 	}
 
-	mtlsEnabled, _ := vals.PathValue("server.mtls.enabled")
+	mtlsEnabled, _ := vals.PathValue("server.tls.enabled")
 	if mtlsEnabled == true {
 		certs, err := createCerts(ctx, r.Client, tempo)
 		if err != nil {

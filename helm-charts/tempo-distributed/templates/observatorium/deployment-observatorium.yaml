@@ -23,21 +23,24 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap-tempo.yaml") . | sha256sum }}
+        checksum/config.tenants: {{ include (print $.Template.BasePath "/observatorium/secret-observatorium.yaml") . | sha256sum }}
+        checksum/config.rbac: {{ include (print $.Template.BasePath "/observatorium/configmap-observatorium.yaml") . | sha256sum }}
         {{- with .Values.observatorium.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: {{ include "tempo.serviceAccountName" . }}
+      serviceAccountName: {{ include "tempo.resourceName" $dict }}
       {{- with .Values.observatorium.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       enableServiceLinks: false
       containers:
-        - args:
+        - name: observatorium
+          image: {{ include "tempo.imageReference" $dict }}
+          args:
             {{- $scheme := "http" }}
-            {{- if .Values.server.mtls.enabled }}
+            {{- if .Values.server.tls.enabled }}
               {{- $scheme = "https" }}
             {{- end }}
             - --web.listen=0.0.0.0:8080 # proxies Tempo API and optionally Jaeger UI
@@ -57,16 +60,14 @@ spec:
             - --tls.server.cert-file=/var/run/tls/public/cert/tls.crt # TLS of public HTTP (8080) and gRPC (8090) server
             - --tls.server.key-file=/var/run/tls/public/cert/tls.key
             {{- end }}
-            {{- if .Values.server.mtls.enabled }}
-            - --traces.tls.cert-file=/var/run/tls/internal/cert/tls.crt # client certificate for connection to Tempo
-            - --traces.tls.key-file=/var/run/tls/internal/cert/tls.key
-            - --traces.tls.ca-file=/var/run/tls/internal/ca/ca.crt
-            - --tls.internal.server.cert-file=/var/run/tls/internal/cert/tls.crt
-            - --tls.internal.server.key-file=/var/run/tls/internal/cert/tls.key
+            {{- if .Values.server.tls.enabled }}
+            - --traces.tls.cert-file=/var/run/tls/internal/certs/tls.crt # client certificate for connection to Tempo
+            - --traces.tls.key-file=/var/run/tls/internal/certs/tls.key
+            - --traces.tls.ca-file=/var/run/tls/internal/certs/ca.crt
+            - --tls.internal.server.cert-file=/var/run/tls/internal/certs/tls.crt
+            - --tls.internal.server.key-file=/var/run/tls/internal/certs/tls.key
             {{- end }}
-            - --log.level=debug
-          image: {{ include "tempo.imageReference" $dict }}
-          name: observatorium
+            - --log.level=info
           ports:
             - containerPort: 8080
               name: public
@@ -94,16 +95,37 @@ spec:
               name: rbac-config
             - mountPath: /conf/tenants
               name: tenants-config
-            {{- if .Values.server.mtls.enabled }}
-            - mountPath: /var/run/tls/internal/ca
-              name: tempo-internal-ca
-            - mountPath: /var/run/tls/internal/cert
-              name: tempo-internal-cert
+            {{- if .Values.server.tls.enabled }}
+            - mountPath: /var/run/tls/internal/certs
+              name: tempo-internal-certs
             {{- end }}
             {{- if .Values.observatorium.tls.cert }}
             - mountPath: /var/run/tls/public/cert
               name: observatorium-public-cert
             {{- end }}
+        {{- if .Values.observatorium.openshift.enabled }}
+        - name: opa-openshift
+          image: quay.io/observatorium/opa-openshift:main-2023-11-15-8ed318e
+          args:
+            - --web.listen=:8082
+            - --web.internal.listen=:8083
+            - --web.healthchecks.url=http://localhost:8082
+            - --opa.package=tempomicroservices
+            - --opa.admin-groups=system:cluster-admins,cluster-admin,dedicated-admin
+            {{- range .Values.observatorium.tenants }}
+            {{- if not .oidc }}
+            - --openshift.mappings={{ .name }}=tempo.grafana.com
+            {{- end }}
+            {{- end }}
+            - --log.level=info
+          ports:
+            - containerPort: 8082
+              name: public
+              protocol: TCP
+            - containerPort: 8083
+              name: opa-metrics
+              protocol: TCP
+        {{- end }}
       {{- with .Values.observatorium.affinity }}
       affinity:
         {{- tpl . $ | nindent 8 }}
@@ -123,13 +145,10 @@ spec:
         - name: tenants-config
           secret:
             secretName: {{ include "tempo.resourceName" $dict }}-tenants
-        {{- if .Values.server.mtls.enabled }}
-        - name: tempo-internal-ca
-          configMap:
-            name: {{ include "tempo.resourceName" (dict "ctx" $ "component" "ca") }}
-        - name: tempo-internal-cert
+        {{- if .Values.server.tls.enabled }}
+        - name: tempo-internal-certs
           secret:
-            secretName: {{ include "tempo.resourceName" $dict }}-cert
+            secretName: {{ include "tempo.resourceName" $dict }}-certs
         {{- end }}
         {{- if .Values.observatorium.tls.cert }}
         - name: observatorium-public-cert
